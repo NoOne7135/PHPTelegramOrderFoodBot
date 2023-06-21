@@ -16,7 +16,6 @@ foreach ($CitysInfo->items as $item) {
 $Citys[$item->id] = $item->name;
 }
 
-
 $data = file_get_contents('php://input');
 $data = json_decode($data, true);
 
@@ -104,7 +103,8 @@ if(strpos($textMessage, '/info') !== false){
     $cityName = getCityInformation($response->cityId)->name;
     $companyName = getCompanyInformation($response->companyId)->name;
     $fullPrice = $response->prices->fullPrice;
-    $textMessage_bot = "\nID замовлення: " . $orderId . "\nСтатус: " . $status ."\nНомер замовлення: " . $number . "\nМісто: " . $cityName . "\nКомпанія: " . $companyName . "\nПовна ціна: " . $fullPrice . "";
+    $deliveryAddress = $response->delivery->deliveryAddress;
+    $textMessage_bot = "\nID замовлення: " . $orderId . "\nСтатус: " . $status ."\nНомер замовлення: " . $number . "\nМісто: " . $cityName . "\nКомпанія: " . $companyName . "\nДе забирати: " . $deliveryAddress . "\nПовна ціна: " . $fullPrice;
     $arrayQuery = array(
         'chat_id' 		=> $chatId,
         'text'			=> $textMessage_bot,
@@ -426,27 +426,64 @@ if(strpos($dataMessage, 'payment') !== false) {
     $buttons[] = array(
         array(
             'text' => 'Оплатити готівкою',
-            'callback_data' => 'order/1',
+            'callback_data' => 'address/1',
             'request_contact'=>true
         )
     );
     $buttons[] = array(
         array(
             'text' => 'Оплатити онлайн',
-            'callback_data' => 'order/2',
+            'callback_data' => 'address/2',
             'request_contact'=>true
         )
     );
     $buttons[] = array(
         array(
             'text' => 'Оплатити терміналом',
-            'callback_data' => 'order/3',
+            'callback_data' => 'address/3',
             'request_contact'=>true
         )
     );
     $arrayQuery = array(
         'chat_id' 		=> $chatId,
-        'text'			=> "Оберіть спосіб оплати",
+        'text'			=> "Обиріть спосіб оплати",
+        'reply_markup' => json_encode(array(
+            'inline_keyboard' => $buttons
+        )),
+    );
+        TG_sendMessage($arrayQuery);
+}
+if(strpos($dataMessage, 'address') !== false) {
+    $chatId = $data['callback_query']["message"]["chat"]["id"];
+    $user = userOne(['id' => $chatId]);
+    $companyInfo = getCompanyInformation($user['company_id']);
+    $payment = str_replace('address/', '', $dataMessage);
+    if(empty($companyInfo->addresses) || $companyInfo->addresses === NULL){
+        $arrayQuery = array(
+            'chat_id' 		=> $chatId,
+            'text'			=> "Вибачте, ця компанія не має функції самовивозу",
+        );
+        TG_sendMessage($arrayQuery);
+        exit();
+    }
+    foreach ($companyInfo->addresses as $address) {
+        $addressData = [
+            'id' => $address->id,
+            'title' => $address->title
+        ];
+        $addressesArray[] = $addressData;
+    }
+    foreach ($addressesArray as $addresses => $address) {
+        $buttons[] = array(
+            array(
+                'text' => $address['title'],
+                'callback_data' => 'order/' . $payment . '/'. $address['id'],
+            ),
+        );
+    }
+    $arrayQuery = array(
+        'chat_id' 		=> $chatId,
+        'text'			=> "Обиріть заклад",
         'reply_markup' => json_encode(array(
             'inline_keyboard' => $buttons
         )),
@@ -454,10 +491,10 @@ if(strpos($dataMessage, 'payment') !== false) {
         TG_sendMessage($arrayQuery);
 }
 
-
 if(strpos($dataMessage, 'order') !== false) {
     $chatId = $data['callback_query']["message"]["chat"]["id"];
     $name = $data['callback_query']['from']['first_name'];
+    $parts = explode("/", $dataMessage);
     $cart = convertToCartItemFormat(cartAll(['user_id' => $chatId]));
     if($cart === array()){
         $arrayQuery = array(
@@ -469,8 +506,8 @@ if(strpos($dataMessage, 'order') !== false) {
     }
     $user = userOne(['id' => $chatId]);
     $companyInfo = getCompanyInformation($user['company_id']);
-    $companyAdressId = $companyInfo->addresses[0]->id;
-    $payment = str_replace('order/', '', $dataMessage);
+    $companyAdressId = $parts[2];
+    $payment = $parts[1];
     $str = '';
     foreach ($cart as $item) {
         $str = $str . " " . $item['id'];
