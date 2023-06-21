@@ -22,6 +22,46 @@ function getCitys(){
     return json_decode((string) $body);
 }
 
+function getCityInformation($id){
+    $client = new \GuzzleHttp\Client();
+    $response = $client->get(
+        'https://api-lambda-release.dotsdev.live/api/v2/cities/' . $id,
+        [
+            'headers' => [
+                'Api-Token' => API_TOKEN,
+                'Api-Account-Token' => API_ACCOUNT_TOKEN,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+            'query' => [
+                'v'=> '2.0.0',
+            ],
+        ]
+    );
+    $body = $response->getBody();
+    return json_decode((string) $body);
+}
+
+function getCompanyInformation($id){
+    $client = new \GuzzleHttp\Client();
+    $response = $client->get(
+        'https://api-lambda-release.dotsdev.live/api/v2/companies/' . $id,
+        [
+            'headers' => [
+                'Api-Token' => API_TOKEN,
+                'Api-Account-Token' => API_ACCOUNT_TOKEN,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+            'query' => [
+                'v'=> '2.0.0',
+            ],
+        ]
+    );
+    $body = $response->getBody();
+    return  json_decode((string) $body);
+}
+
 function getCompanyByCityId($id){
     $client = new \GuzzleHttp\Client();
     $response = $client->get(
@@ -111,7 +151,7 @@ function getCartPrice($cityId, $companyId, $cartItems){
     $body = $response->getBody();
     return json_decode((string) $body);
 }
-function Order($cityId, $companyId, $cartItems, $phone, $name, $paymentType = 1){
+function Order($cityId, $companyId, $cartItems, $phone, $name, $paymentType, $companyAddressId){
     $client = new \GuzzleHttp\Client();
     $response = $client->post(
         'https://api-lambda-release.dotsdev.live/api/v2/orders',
@@ -128,9 +168,10 @@ function Order($cityId, $companyId, $cartItems, $phone, $name, $paymentType = 1)
                 'orderFields' => [
                     'cityId' => $cityId,
                     'companyId' => $companyId,
+                    'companyAddressId' => $companyAddressId,
                     'userName' => $name,
                     'userPhone' => $phone,
-                    'deliveryType' => 0,
+                    'deliveryType' => 2,
                     'paymentType' => $paymentType,
                     'deliveryTime' => 0,
                     'cartItems' => $cartItems
@@ -172,10 +213,10 @@ $response = $client->post(
 $body = $response->getBody();
 return json_decode((string) $body);
 }
-function OrderInfo($order_Id){
+function OrderInfo($id){
     $client = new \GuzzleHttp\Client();
     $response = $client->get(
-        'clients-api.dots.live/api/v2/orders/et',
+        'https://api-lambda-release.dotsdev.live/api/v2/orders/' . $id,
         [
             'headers' => [
                 'Api-Auth-Token' => API_AUTH_TOKEN,

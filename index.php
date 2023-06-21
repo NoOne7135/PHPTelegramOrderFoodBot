@@ -16,6 +16,7 @@ foreach ($CitysInfo->items as $item) {
 $Citys[$item->id] = $item->name;
 }
 
+
 $data = file_get_contents('php://input');
 $data = json_decode($data, true);
 
@@ -47,6 +48,8 @@ if($textMessage == '/start') {
     );
         TG_sendMessage($arrayQuery);
 }
+
+
 if($textMessage == '/cart') {
     $chatId = $data["message"]["chat"]["id"];
     $cart = cartAll(['user_id' => $chatId]);
@@ -83,11 +86,29 @@ if($textMessage == '/cart') {
     $arrayQuery = array(
         'chat_id' 		=> $chatId,
         'text'			=> "Ваш кошик:\n" . $result . $priceInfo . 
-        "\nДля замовлення буде уточнено адреc\nОплата при отриманні замовлення",
+        "\nДля замовлення буде уточнено адреc",
         'reply_markup' => json_encode(array(
             'inline_keyboard' => $buttons
         )),
     );
+        TG_sendMessage($arrayQuery);
+}
+  
+if(strpos($textMessage, '/info') !== false){
+    $chatId = $data["message"]["chat"]["id"];
+    $orderId = trim(str_replace('/info', '', $textMessage));
+    $response = OrderInfo($orderId);
+    $id = $response->id;
+    $status = $response->status;
+    $number = $response->number;
+    $cityName = getCityInformation($response->cityId)->name;
+    $companyName = getCompanyInformation($response->companyId)->name;
+    $fullPrice = $response->prices->fullPrice;
+    $textMessage_bot = "\nID замовлення: " . $orderId . "\nСтатус: " . $status ."\nНомер замовлення: " . $number . "\nМісто: " . $cityName . "\nКомпанія: " . $companyName . "\nПовна ціна: " . $fullPrice . "";
+    $arrayQuery = array(
+        'chat_id' 		=> $chatId,
+        'text'			=> $textMessage_bot,
+        );
         TG_sendMessage($arrayQuery);
 }
 
@@ -306,7 +327,7 @@ if(strpos($dataMessage, 'food') !== false) {
 
     $buttons[] = array(
         array(
-            'text' => 'Додити одну',
+            'text' => 'Додати у кошик',
             'callback_data' => 'cart/' . $idFood,
         ),
         array(
@@ -436,9 +457,8 @@ if(strpos($dataMessage, 'payment') !== false) {
 
 if(strpos($dataMessage, 'order') !== false) {
     $chatId = $data['callback_query']["message"]["chat"]["id"];
-    $phone = $data["message"]["contact"]["phone_number"];
     $name = $data['callback_query']['from']['first_name'];
-    $cart = cartAll(['user_id' => $chatId]);
+    $cart = convertToCartItemFormat(cartAll(['user_id' => $chatId]));
     if($cart === array()){
         $arrayQuery = array(
             'chat_id' 		=> $chatId,
@@ -448,17 +468,24 @@ if(strpos($dataMessage, 'order') !== false) {
         exit;
     }
     $user = userOne(['id' => $chatId]);
-    $peyment = str_replace('order/', '', $dataMessage);
-    if($user['city_id'] !== NULL && $user['company_id'] !== NULL && $user['phone'] !== NULL){
-        $response = Order($user['city_id'], $user['company_id'], convertToCartItemFormat($cart), str_replace("+", "", $user['phone']), $name, 1);
-        $textMessage = "Замовлення оформлене, код замовлення:\n" . $response->id;
+    $companyInfo = getCompanyInformation($user['company_id']);
+    $companyAdressId = $companyInfo->addresses[0]->id;
+    $payment = str_replace('order/', '', $dataMessage);
+    $str = '';
+    foreach ($cart as $item) {
+        $str = $str . " " . $item['id'];
+    }
+    if($user['city_id'] !== NULL && $user['company_id'] !== NULL && $user['phone'] !== NULL && $companyAdressId !== NULL){
+        $response = Order($user['city_id'], $user['company_id'], $cart, str_replace("+", "", $user['phone']), $name, $payment, $companyAdressId);
+        $textMessage = "Замовлення оформлене, код замовлення:\n" . $response->id ;
         cartDelete(['id' => $chatId]);
         $arrayQuery = array(
             'chat_id' 		=> $chatId,
             'text'			=> $textMessage,
         );
-            TG_sendMessage($arrayQuery);
+        TG_sendMessage($arrayQuery);
     }else{
+        if($user['phone'] == NULL){
         $button = [
             'text' => 'Відправте номер телефону',
             'request_contact' => true
@@ -478,7 +505,27 @@ if(strpos($dataMessage, 'order') !== false) {
             'reply_markup' => $replyMarkup,
         ]);
     }
-    
+    if($companyAdressId !== NULL){
+        $arrayQuery = array(
+            'chat_id' 		=> $chatId,
+            'text'			=> 'Помилка, нема адреси компанії',
+        );
+        TG_sendMessage($arrayQuery);
+        exit();
+    }
+    if(['city_id']  == NULL){
+        TG_sendMessage([
+            'chat_id' => $chatId,
+            'text' => 'Не обране місто',
+        ]);
+    }
+    if($user['company_id'] == NULL){
+        TG_sendMessage([
+            'chat_id' => $chatId,
+            'text' => 'Не обрана компанія',
+        ]);
+    }
+}
 }
 
 if($data["message"]["contact"]["phone_number"] !== NULL) {
@@ -494,3 +541,4 @@ if($data["message"]["contact"]["phone_number"] !== NULL) {
         'text' => 'Телефон записано',
     ]);
 }
+
