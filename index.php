@@ -522,7 +522,7 @@ if(strpos($dataMessage, 'order') !== false) {
         );
         TG_sendMessage($arrayQuery);
     }else{
-        if($user['phone'] == NULL){
+        if($user['phone'] === NULL){
         $button = [
             'text' => 'Відправте номер телефону',
             'request_contact' => true
@@ -542,7 +542,7 @@ if(strpos($dataMessage, 'order') !== false) {
             'reply_markup' => $replyMarkup,
         ]);
     }
-    if($companyAdressId !== NULL){
+    if($companyAdressId === NULL){
         $arrayQuery = array(
             'chat_id' 		=> $chatId,
             'text'			=> 'Помилка, нема адреси компанії',
@@ -550,13 +550,13 @@ if(strpos($dataMessage, 'order') !== false) {
         TG_sendMessage($arrayQuery);
         exit();
     }
-    if(['city_id']  == NULL){
+    if(['city_id']  === NULL){
         TG_sendMessage([
             'chat_id' => $chatId,
             'text' => 'Не обране місто',
         ]);
     }
-    if($user['company_id'] == NULL){
+    if($user['company_id'] === NULL){
         TG_sendMessage([
             'chat_id' => $chatId,
             'text' => 'Не обрана компанія',
